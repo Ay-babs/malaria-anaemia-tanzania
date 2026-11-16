@@ -1,0 +1,634 @@
+---
+title: "Spatial distribution and determinants of the co-occurrence of malaria and anaemia among under-five children in Tanzania"
+subtitle: "Independent project progress report"
+# author: "Annabel & Babalola"
+date: today
+format:
+  pdf:
+    documentclass: article
+    fontsize: 11pt
+    geometry:
+      - margin=1in
+    number-sections: false
+    toc: true
+    toc-depth: 2
+    fig-pos: "H"
+    linestretch: 1.15
+    colorlinks: true
+execute:
+  echo: false
+  warning: false
+---
+
+# 1. Introduction
+
+Malaria and anaemia remain major causes of morbidity and mortality among
+children under five years of age in sub-Saharan Africa, and Tanzania is
+no exception. Children in this age group are particularly vulnerable to
+malaria because of their developing immune systems and, once infected,
+are at increased risk of anaemia. Plasmodium falciparum contributes to
+anaemia through the destruction of parasitised and non-parasitised red
+blood cells and suppression of bone marrow erythropoiesis (Adam *et
+al*., 2025; Mwaiswelo *et al*., 2021; White *et al.,* 2018).
+
+Over the past two decades, Tanzania has invested substantially in
+malaria control through the National Malaria Control Programme (NMCP),
+including the distribution of insecticide-treated nets (ITNs), indoor
+residual spraying, seasonal malaria chemoprevention and improved case
+management. These efforts have contributed to a decline in national
+malaria prevalence, although the burden remains geographically
+heterogeneous, with some regions, including Tabora, Kagera and Mtwara,
+reporting prevalence several times higher than the national average
+(Adam *et al*., 2025; Animut *et al*., 2025).
+
+Anaemia, however, is considerably more common among under-five children
+than malaria and has a broader aetiological basis. Contributing factors
+include iron and micronutrient deficiencies, poor complementary feeding
+practices, intestinal helminths, other infections and household
+socioeconomic disadvantage (Elmardi *et al*., 2020; Saidi & Issae,
+2025). Consequently, a substantial proportion of childhood anaemia in
+Tanzania is likely to occur independently of current malaria infection,
+and effective anaemia-reduction strategies cannot rely on malaria
+control alone.
+
+This project uses the 2022 Tanzania Demographic and Health Survey and
+Malaria Indicator Survey (TDHS-MIS) to examine, among children aged
+6--59 months, (i) the prevalence of malaria, anaemia and their
+co-occurrence (the "double burden"); (ii) individual-, household- and
+community-level factors associated with malaria-related anaemia; (iii)
+factors associated with anaemia in the absence of current malaria
+infection; and (iv) the extent to which the determinants of these two
+forms of anaemia overlap. This progress report summarises the work
+completed to date, including the conceptual framing of the problem, a
+review of the relevant peer-reviewed literature, the planned analytical
+approach and preliminary descriptive findings.
+
+# 2. Problem definition
+
+Preliminary analysis of the 2022 TDHS-MIS data among children aged 6--59
+months with complete malaria rapid diagnostic test (RDT) and haemoglobin
+results (n = 4,166) illustrates the scale of the problem. Malaria RDT
+positivity was 6.1% (255/4,166), whereas anaemia prevalence was 60.5%
+(2,521/4,166), approximately ten times higher. The two conditions
+co-occurred in 5.1% of children (211/4,166). Thus, among anaemic
+children in the sample, 91.6% tested negative for malaria at the time of
+the survey, indicating that their anaemia was not accompanied by
+detectable concurrent malaria parasitaemia.
+
+This pattern presents an important programmatic and analytical
+challenge. National and regional malaria risk-stratification studies in
+Tanzania (Adam *et al*., 2025; Animut *et al*., 2025) have mapped
+malaria hotspots and their determinants in detail, providing an
+appropriate basis for targeting vector-control and case-management
+interventions. However, because anaemia is substantially more prevalent
+than malaria and is driven by a broader range of factors, interventions
+based solely on malaria risk maps may leave a large proportion of the
+anaemia burden unaddressed. Conversely, generic anaemia programmes that
+do not account for the subgroup of children with malaria-related anaemia
+may under-prioritise ITN distribution, prompt diagnosis and treatment,
+and seasonal chemoprevention in populations and settings where these
+interventions could have the greatest effect on anaemia.
+
+There is therefore a need to move beyond establishing an association
+between malaria and anaemia, which is already well documented (e.g.,
+Elmardi *et al*., 2020; Mwaiswelo *et al*., 2021; Gena *et al*., 2025;
+Saidi & Issae, 2025), towards explicitly separating the anaemia burden
+into malaria-related and non-malaria-related components, characterising
+the determinants of each and comparing their profiles. This approach
+will clarify which risk factors, such as poverty, rural residence, poor
+housing and low ITN coverage, are shared across the two pathways and may
+therefore benefit from integrated programming, and which are specific to
+one pathway, such as dietary and complementary feeding practices for
+non-malaria-related anaemia or vector exposure and net use for
+malaria-related anaemia and may require targeted interventions.
+
+## 2.1 Research questions
+
+1.  What is the spatial prevalence of malaria infection, anaemia and the
+    combined malaria--anaemia double burden (possible malaria related
+    anaemia) among children aged 6--59 months in Tanzania, and how does
+    this vary across regions/zones and background characteristics?
+
+2.  Which individual-, household- and community-level factors are
+    associated with malaria-related anaemia, defined as anaemia
+    occurring in the presence of a positive malaria RDT?
+
+3.  Which factors are associated with non-malaria-related anaemia,
+    defined as anaemia occurring in children with a negative malaria
+    RDT?
+
+4.  To what extent do the determinants identified in Questions 2 and 3
+    overlap, and what does the pattern of overlap and divergence imply
+    for the design of integrated versus targeted malaria and
+    nutrition/anaemia-control interventions in Tanzania?
+
+# 3. Literature survey
+
+Seven peer-reviewed studies were reviewed to situate this project within
+the existing evidence on malaria and anaemia among children under five
+in Tanzania and comparable sub-Saharan African settings.
+
+## 3.1 Malaria prevalence and determinants in Tanzania
+
+Adam *et al*. (2025), using the 2022 TDHS-MIS, reported a national
+malaria RDT-positivity rate of 8% among children aged 6--59 months, with
+marked regional variation. Prevalence reached 23% in Tabora but was
+below 1% in several central and Zanzibari regions. In multivariable
+analysis, older age (24--59 months), rural residence, lower household
+wealth and not sleeping under an insecticide-treated net (ITN) were
+independently associated with higher odds of malaria infection. The
+authors argued that these findings support geographically and
+socioeconomically targeted ITN distribution and health education.
+
+Animut *et al*. (2025) extended this national picture through a spatial
+and multilevel analysis of the same 2022 TDHS-MIS data. Malaria among
+under-five children was significantly spatially clustered (Global
+Moran's I = 0.14), with primary hotspot clusters in the Western and Lake
+zones and a secondary cluster in Mtwara. Geographically weighted
+regression identified household wealth and access to health care as the
+strongest spatial determinants of clustering, while multilevel logistic
+regression identified maternal education, child age (48--59 months),
+family size, low household wealth and unimproved roofing material as
+significant individual- and household-level correlates of malaria
+infection. This study is methodologically relevant to the present
+project because it demonstrates the value of multilevel modelling for
+accounting for the clustered structure of DHS data.
+
+## 3.2 Malaria, anaemia and their co-occurrence
+
+Mwaiswelo *et al*. (2021) conducted a community-based malariometric and
+socioeconomic survey in Masasi and Nanyumbu districts in southern
+Tanzania before the roll-out of seasonal malaria chemoprevention.
+Malaria RDT positivity was 15.9% and anaemia prevalence was 53.9%, with
+both conditions significantly more common in Nanyumbu than in Masasi.
+Anaemia prevalence was higher among malaria-positive than
+malaria-negative children in both districts. Multivariable models showed
+that district of residence, RDT positivity, lack of bednet ownership or
+use, and poor housing characteristics, including thatched roofs and open
+eaves, were independently associated with anaemia, alongside child sex
+and age. This study provides a directly relevant Tanzanian precedent for
+jointly modelling malaria and anaemia and for considering malaria status
+as a determinant of anaemia risk.
+
+Gena *et al*. (2025), studying school-aged children in Hawassa,
+Ethiopia, reported lower overall prevalence of malaria (8.5%) and
+anaemia (9.4%) but a strong association between the two conditions.
+Malaria-infected children had more than 13 times the odds of being
+anaemic in multivariable analysis, and approximately 29--36% of anaemic
+children, depending on the diagnostic method, were also
+malaria-positive. Importantly for the present project, most anaemic
+children in that study were not malaria infected. Anaemia-specific
+determinants included meal frequency and a history of wasting, whereas
+malaria-specific determinants included ITN use and caregiver knowledge
+of transmission. These findings support the feasibility of statistically
+distinguishing malaria-related and non-malaria-related anaemia risk
+factors within a single dataset.
+
+## 3.3 Broader determinants of childhood anaemia
+
+Elmardi *et al*. (2020) analysed a large, nationally representative
+household survey of children aged 6 months to under 5 years in Sudan and
+reported an overall anaemia prevalence of 49.4%, with younger children
+(6--23 months) substantially more affected than older children. In the
+full cohort, age, place of residence, maternal anaemia and malaria
+infection were significant predictors. However, after stratification by
+age group, the significant predictors differed: economic status alone
+predicted anaemia among children under 2 years, whereas maternal
+anaemia, malaria infection and place of residence predicted anaemia
+among children aged 2--5 years. This finding is particularly relevant to
+the present project because it demonstrates that malaria is one of
+several age-varying pathways to childhood anaemia, reinforcing the need
+to distinguish malaria-related from non-malaria-related anaemia rather
+than treating anaemia as a homogeneous outcome.
+
+Saidi and Issae (2025), in a six-year retrospective hospital-based study
+at Morogoro Regional Referral Hospital, Tanzania, documented a decline
+in anaemia prevalence among children under five from 72% in 2015 to 33%
+in 2020, which they attributed to improving health-care access and
+nutrition interventions. Despite this decline, malaria infection
+remained the strongest correlate of anaemia in their multivariable model
+(adjusted odds ratio ≈ 19.7), followed by age under two years. Dietary
+practices, including tea consumption with sugar and high milk intake,
+were also significant. This study illustrates that, even within a single
+Tanzanian setting, malaria-related and non-malaria-related, particularly
+dietary and nutritional, pathways to anaemia coexist and can be
+statistically distinguished.
+
+## 3.4 Regional and cross-country evidence
+
+Sacla Aidé *et al*. (2025) analysed the most recent Demographic and
+Health Survey data from eight West African countries (Benin, Burkina
+Faso, Côte d'Ivoire, Ghana, Guinea, Liberia, Nigeria and Togo) using
+generalised linear geostatistical models. ITN use was associated with
+significantly reduced odds of malaria infection in four of the eight
+countries, while younger child age (under 2 years) was consistently
+associated with lower malaria risk across all eight countries. The
+authors attributed this pattern to partial protection from maternally
+transferred immunity and more consistent net use and caregiver
+supervision among infants. National malaria prevalence ranged from below
+10% in Ghana to almost 40% in Benin, underscoring substantial
+cross-country and, by extension, cross-regional heterogeneity that is
+also apparent within Tanzania. These findings support the use of
+spatial/geostatistical approaches and adjustment for child age, wealth
+and net use when analysing the Tanzanian data.
+
+## 3.5 Synthesis
+
+Taken together, the reviewed literature establishes three points that
+motivate the present project. First, malaria and anaemia are strongly
+associated but far from co-extensive: anaemia prevalence typically
+exceeds malaria prevalence several-fold, both nationally in Tanzania
+(Adam *et al*., 2025) and in the districts and countries examined by
+Mwaiswelo *et al*. (2021), Gena *et al*. (2025) and Elmardi *et al*.
+(2020). Thus, most anaemia cases are not attributable to concurrent
+malaria infection. Second, the determinants of malaria, including age,
+wealth, residence, ITN use and housing quality, overlap substantially
+with broader determinants of anaemia, including maternal anaemia,
+dietary practices, wasting, age, wealth and housing, even where the
+underlying mechanisms differ. Third, none of the reviewed studies
+explicitly partitions anaemia into malaria-related and
+non-malaria-related sub-outcomes and formally compares their determinant
+profiles within a single national dataset. This represents the specific
+analytical gap addressed by the present project using the 2022 Tanzania
+TDHS-MIS.
+
+# 4. Approach
+
+## 4.1 Data source and study population
+
+This project uses secondary data from the 2022 Tanzania Demographic and
+Health Survey and Malaria Indicator Survey (TDHS-MIS), a nationally
+representative, two-stage stratified household survey. The analytic
+sample comprises children aged 6--59 months with valid malaria rapid
+diagnostic test (RDT) and haemoglobin results from the Household Member
+Recode (PR) file, merged as needed with the Household Recode (HR) and
+Individual Recode (IR) files for maternal- and household-level
+covariates. After excluding observations with missing values for either
+outcome component, the working sample comprises 4,166 children.
+
+## 4.2 Outcome variables and case definitions
+
+Anaemia is defined using the WHO haemoglobin threshold for children aged
+6--59 months (haemoglobin \< 11 g/dL), consistent with Elmardi *et al*.
+(2020) and the TDHS-MIS protocol. Malaria infection is defined as a
+positive malaria RDT result, consistent with Adam *et al*. (2025) and
+Animut *et al*. (2025).
+
+A key methodological step is the operational separation of
+malaria-related from non-malaria-related anaemia. Because the TDHS-MIS
+records both anaemia and malaria RDT status for the same child at the
+same visit, each child can be cross-classified into four mutually
+exclusive groups:
+
+Group A --- Malaria-related anaemia: RDT-positive and anaemic (Hb \< 11
+g/dL). This group represents the "double burden" and is used as the
+operational definition of malaria-related anaemia.
+
+Group B --- Non-malaria-related anaemia: RDT-negative and anaemic. This
+group represents anaemia occurring in the absence of detectable current
+malaria infection and is used as the operational definition of
+non-malaria-related anaemia in this study.
+
+Group C --- Malaria infection without anaemia: RDT-positive and not
+anaemic.
+
+Group D --- Neither condition (reference group): RDT-negative and not
+anaemic.
+
+This case definition is consistent with the approach used by Gena *et
+al*. (2025), who similarly cross-tabulated malaria and anaemia status to
+describe the proportion of anaemic children who were concurrently
+malaria-infected. We acknowledge an important limitation of this
+definition, which will be addressed explicitly in the final report. An
+RDT captures current or very recent parasitaemia and, for HRP2-based
+tests, can remain positive for some time after parasite clearance. Thus,
+a child classified into Group B could still have anaemia that is a
+longer-term physiological consequence of a previous malaria episode. The
+four-group classification should therefore be interpreted as
+distinguishing anaemia with current, detectable malaria infection from
+anaemia without current, detectable malaria infection, rather than as
+definitive evidence of causal attribution. Sensitivity analyses
+restricting Group B to children with no reported fever during the two
+weeks preceding the survey, where available, will be used to assess the
+robustness of this classification, following a similar approach to
+Elmardi *et al*. (2020).
+
+## 4.3 Explanatory variables
+
+Guided by the reviewed literature, the following individual-, household-
+and community-level variables will be extracted and considered as
+candidate predictors in both models:
+
+***Child-level***: age in months (categorised, e.g., 6--11, 12--23,
+24--35, 36--47, 48--59), sex, nutritional status (stunting/wasting where
+available), recent history of fever.
+
+***Maternal-level**:* education, age, anaemia status.
+
+***Household-level*:** wealth index quintile, family/household size, sex
+and age of household head, main floor/wall/roof material, availability
+and utilisation of ITNs, access to improved drinking water and
+sanitation, access to health insurance/health care.
+
+***Community-level***: place of residence (urban/rural), region/zone,
+and, where feasible, an indicator of local malaria transmission
+intensity derived from cluster-level RDT positivity.
+
+## 4.4 Analytic strategy
+
+Descriptive analysis: Weighted prevalence of malaria, anaemia and each
+of the four outcome groups defined in Section 4.2 will be estimated
+overall and by region/zone and background characteristics, applying the
+DHS sampling weights, strata and primary sampling unit (cluster) design
+variables, following the approach of Adam *et al*. (2025) and Animut *et
+al*. (2025).
+
+Distinguishing malaria-related from non-malaria-related anaemia
+determinants: Two complementary multivariable logistic regression models
+will be estimated, both using Group D (neither malaria nor anaemia) as
+the reference category:
+
+***Model 1 (malaria-related anaemia):*** Group A versus Group D, to
+identify factors independently associated with anaemia occurring
+alongside current malaria infection.
+
+***Model 2 (non-malaria-related anaemia):*** Group B versus Group D, to
+identify factors independently associated with anaemia occurring in the
+absence of detectable malaria infection.
+
+As a robustness check, a single multinomial logistic regression model
+with all four groups modelled simultaneously (Group D as the base
+outcome) will also be fitted. This approach uses a consistent set of
+covariate coefficients and standard errors across the two anaemia
+pathways, facilitating formal comparison of coefficients between Groups
+A and B. Given the hierarchical structure of the DHS data, with children
+nested within households and households within clusters, multilevel
+(mixed-effects) logistic models will be used where sample size permits,
+following Animut *et al*. (2025) and Elmardi *et al*. (2020).
+Cluster-level random intercepts will be included, with reporting of the
+intra-class correlation coefficient (ICC), median odds ratio (MOR) and
+proportional change in variance (PCV) to quantify the contribution of
+cluster-level heterogeneity to each outcome.
+
+***Assessing overlap between the two determinant sets:*** Once Models 1
+and 2, together with the multinomial model, are finalised, statistically
+significant predictors (p \< 0.05) from each model will be
+systematically compared and classified into: (i) shared risk factors ---
+variables significant in both models with the same direction of effect;
+(ii) malaria-anaemia-specific factors --- significant only in Model 1;
+(iii) non-malaria-anaemia-specific factors --- significant only in Model
+2; and (iv) divergent factors --- significant in both models but with
+opposite directions of association. Based on the literature reviewed in
+Section 3, low household wealth, rural residence, lack of ITN use and
+poor housing materials are hypothesised to be shared risk factors,
+whereas factors closely related to vector exposure and net use may be
+specific to malaria-related anaemia, and maternal anaemia,
+dietary/feeding practices and other infections may be specific to
+non-malaria-related anaemia (Elmardi *et al*., 2020; Saidi & Issae,
+2025). The classification will be summarised in a comparison table and
+overlap (Venn-style) diagram and will inform the assessment of whether
+integrated programming, such as combined ITN distribution and nutrition
+education delivered through the same platform, or parallel
+pathway-specific interventions are more appropriate for reducing the
+overall anaemia burden in Tanzania.
+
+***Model diagnostics*:** Multicollinearity will be assessed using
+variance inflation factors, while model fit will be compared using the
+Akaike Information Criterion (AIC) and deviance, consistent with Animut
+*et al*. (2025).
+
+## 4.5 Software and ethical considerations
+
+Analyses will be conducted in Stata or R, using survey/svy or equivalent
+packages to incorporate DHS sampling weights, strata and cluster design,
+and multilevel packages (e.g., melogit in Stata or lme4/glmer in R) for
+mixed-effects models. The study uses secondary, de-identified, publicly
+available DHS data obtained through an approved request to the DHS
+Program; no new primary data collection involving human participants is
+undertaken, and no additional ethical clearance beyond the DHS Program's
+existing approvals is required for this secondary analysis.
+
+# 5. Preliminary results
+
+Preliminary descriptive analysis has been completed for the outcome
+variables among children aged 6--59 months with complete malaria RDT and
+haemoglobin data (n = 4,166). These are unweighted counts, prior to
+application of DHS sampling weights and full covariate cleaning, and
+will be updated with weighted estimates and confidence intervals in the
+next phase of the analysis.
+
+  ------------------------------------------------------------------------
+  **Indicator**          **Positive/Yes   **Negative/No    **Prevalence
+                         (n)**            (n)**            (%)**
+  ---------------------- ---------------- ---------------- ---------------
+  Malaria (RDT positive) 254              3,893            6.1%
+
+  Anaemia (Hb \< 11      2,510            1,637            60.5%
+  g/dL)                                                    
+
+  Double burden (malaria 210              3,937            5.1%
+  AND anaemia)                                             
+  ------------------------------------------------------------------------
+
+*Note: N = 4,147 children with complete data. Unweighted counts.*
+
+Applying the four-group case definition described in Section 4.2, the
+sample can be decomposed as follows:
+
+  -----------------------------------------------------------------------
+  **Group**                         **n**              **% of total
+                                                       sample**
+  --------------------------------- ------------------ ------------------
+  A: Malaria-related anaemia (RDT+  210                5.1%
+  and anaemic)                                         
+
+  B: Non-malaria-related anaemia    2,300              55.5%
+  (RDT− and anaemic)                                   
+
+  C: Malaria without anaemia (RDT+  44                 1.1%
+  and not anaemic)                                     
+
+  D: Neither malaria nor anaemia    1,593              38.4%
+  (reference)                                          
+  -----------------------------------------------------------------------
+
+*Note: Groups sum to N = 4,147 and are internally consistent with the
+totals in the indicator table above. Source: Babalola and Annabel's
+analysis of the 2022 TDHS-MIS (KR & PR recodes).*
+
+Two preliminary observations follow directly from this decomposition and
+motivate the analytic approach in Section 4. First, among anaemic
+children (n = 2,521), only 8.4% (Group A, 211/2,521) were concurrently
+malaria-positive, while the remaining 91.6% (Group B, 2,310/2,521) were
+malaria-negative. This confirms, consistent with the literature reviewed
+in Section 3, that the majority of anaemia in this sample was not
+accompanied by detectable concurrent malaria infection and therefore
+warrants a separate determinant analysis (Model 2). Second, among
+malaria-positive children (n = 255), 82.7% (211/255) were also anaemic,
+compared with approximately 59% of malaria-negative children
+(2,310/3,911), indicating a strong crude association between malaria and
+anaemia at the individual level, consistent with Mwaiswelo *et al*.
+(2021) and Gena *et al*. (2025). Full multivariable and multilevel
+modelling of Groups A and B against the reference Group D, together with
+the corresponding overlap analysis of determinants, is planned as the
+next stage of the project (Section 4.4).
+
+## 5.1 Spatial distribution of malaria, anaemia and the double burden
+
+Weighted prevalence of malaria, anaemia and the double burden was mapped
+at the region and DHS-zone level, and summarised by cluster, to
+characterise subnational heterogeneity, following the geospatial
+approach of Adam et al. (2025) and Animut et al. (2025).
+
+![](media/image1.png){width="4.3in" height="4.3in"}
+
+*Figure 1. Anaemia prevalence by region.*
+
+![](media/image2.png){width="4.3in" height="4.3in"}
+
+*Figure 2. Anaemia prevalence by DHS zone. Prevalence ranged from 46.8%
+in the central zone to 71.2% in the eastern zone.*
+
+![](media/image3.png){width="4.3in" height="4.3in"}
+
+*Figure 3. Malaria prevalence by region.*
+
+![](media/image4.png){width="4.3in" height="4.3in"}
+
+*Figure 4. Malaria prevalence by DHS zone. RDT positivity was highest in
+the western (18.8%) and southern (16.0%) zones and lowest in the central
+zone (0.1%).*
+
+![](media/image5.png){width="4.3in" height="4.3in"}
+
+*Figure 5. Double-burden (malaria-related anaemia) prevalence by
+region.*
+
+![](media/image6.png){width="4.3in" height="4.3in"}
+
+*Figure 6. Double-burden prevalence by DHS zone, closely tracking the
+malaria pattern (highest in the western, 15.5%, and southern, 15.3%,
+zones; lowest in the central zone, 0.1%).*
+
+![](media/image7.png){width="6.0in" height="4.0in"}
+
+*Figure 7. Weighted malaria, anaemia and double-burden prevalence by DHS
+zone, summarising Figures 2, 4 and 6 on a common scale.*
+
+Cluster-level mapping (Figures 8-10) shows that this zonal pattern
+conceals considerable local variation, with prevalence differing widely
+between clusters within the same zone, particularly for malaria and the
+double burden.
+
+![](media/image8.png){width="4.3in" height="4.3in"}
+
+*Figure 8. Anaemia prevalence across individual survey clusters, within
+DHS zone boundaries.*
+
+![](media/image9.png){width="4.3in" height="4.3in"}
+
+*Figure 9. Malaria prevalence across individual survey clusters, within
+DHS zone boundaries.*
+
+![](media/image10.png){width="4.3in" height="4.3in"}
+
+*Figure 10. Double-burden prevalence across individual survey clusters,
+within DHS zone boundaries.*
+
+## 5.2 Distribution by background characteristics
+
+Malaria, anaemia and double-burden prevalence were further examined by
+child-, maternal-, household- and community-level characteristics
+(Figures 11-14).
+
+![](media/image11.png){width="6.3in"
+height="4.295454943132109in"}
+
+*Figure 11. Child-level characteristics. Anaemia was highest among
+infants (78.3%) and declined with age; fever, diarrhoea, stunting and
+wasting were each associated with higher prevalence of all three
+outcomes.*
+
+![](media/image12.png){width="6.3in"
+height="4.295454943132109in"}
+
+*Figure 12. Maternal-level characteristics. Anaemia and double-burden
+prevalence were highest among adolescent mothers (78.4% and 12.9%,
+respectively) and among children of mothers with no education, falling
+with increasing maternal education.*
+
+![](media/image13.png){width="6.3in"
+height="4.295454943132109in"}
+
+*Figure 13. Household-level characteristics. Malaria and double-burden
+prevalence rose sharply with poverty (14.7% and 12.2% among the poorest
+vs 0.5% and 0.4% among the richest) and with unimproved roofing (16.2%
+vs 4.3% for malaria).*
+
+![](media/image14.png){width="6.3in"
+height="4.295454943132109in"}
+
+*Figure 14. Community-level characteristics. Malaria and the double
+burden were concentrated in the western (20.1%, 16.7%) and southern
+(15.8%, 15.1%) zones and were markedly higher in rural (8.2%, 6.8%) than
+urban (0.6%, 0.4%) clusters, while anaemia varied comparatively little
+by residence.*
+
+## 5.3 Next steps
+
+a)  Finalise the covariate dataset by merging the PR, HR and IR recodes
+    and apply DHS sampling weights, strata and cluster variables.
+
+b)  Estimate weighted descriptive prevalence of malaria, anaemia and the
+    double burden by region/zone and key background characteristics.
+
+c)  Fit Model 1 (malaria-related anaemia) and Model 2
+    (non-malaria-related anaemia), together with the multinomial and
+    multilevel robustness checks described in Section 4.4.
+
+d)  Conduct the overlap analysis of significant determinants and produce
+    the comparison table and diagram.
+
+e)  Draft the final report, including full results, discussion,
+    limitations and policy recommendations.
+
+# References
+
+> Adam, J., Luoga, P., Nyamhanga, T., Makunenge, C., & Ayubu, M. (2025).
+> Prevalence and determinants of malaria among children aged 6--59
+> months in Tanzania: a nationwide cross-sectional study. *Malaria
+> Journal*, 24, 248.
+>
+> Animut, Y., Nigatu, S. G., Teklu, R. E., & Abiy, S. A. (2025). Spatial
+> distribution of malaria among under-five children and associated
+> factors in Tanzania: a spatial and multilevel analysis. *Malaria
+> Journal*, 24, 86.
+>
+> Elmardi, K. A., Adam, I., Malik, E. M., Ibrahim, A. A., Elhassan, A.
+> H., Kafy, H. T., Nawai, L. M., Abdin, M. S., & Kremers, S. (2020).
+> Anaemia prevalence and determinants in under-5 years children:
+> findings of a cross-sectional population-based study in Sudan. *BMC
+> Pediatrics*, 20, 538.
+>
+> Gena, A., Asnake, S., & Menjetta, T. (2025). Prevalence of malaria,
+> anemia and associated factors among school children in Hawassa city,
+> Sidama, Ethiopia. *PLoS ONE*, 20(7), e0327378.
+>
+> Mwaiswelo, R. O., Mmbando, B. P., Chacky, F., Molteni, F., Mohamed,
+> A., Lazaro, S., Mkalla, S. F., Samuel, B., & Ngasala, B. (2021).
+> Malaria infection and anemia status in under-five children from
+> Southern Tanzania where seasonal malaria chemoprevention is being
+> implemented. *PLoS ONE*, 16(12), e0260785.
+>
+> Sacla Aidé, E., Kazienga, A., Adegboye, O., Sondo, P., & Tinto, H.
+> (2025). Malaria hotspots and risk factors among children under-five
+> years of age across eight West African countries: A geospatial
+> analysis of DHS data. *MalariaWorld Journal*, 16, 19.
+>
+> Saidi, A. S., & Issae, A. R. (2025). Trends and determinants of anemia
+> in children under five: A retrospective study at Morogoro Regional
+> Referral Hospital, Tanzania. *Central African Journal of Public
+> Health*, 11(2), 84--90.
+>
+> White NJ. Anaemia and malaria. Malaria Journal \[Internet\]. 2018
+> \[cited; 17(1):371. Available from: 10.1186/s12936-018-2509-9.
