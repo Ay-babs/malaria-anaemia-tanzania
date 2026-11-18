@@ -1,0 +1,1063 @@
+---
+title: "Malaria, anaemia and the double burden among children under five in Tanzania"
+subtitle: "MAP ECR demo: what we learned, shown through the four study objectives"
+author: "Annabel Itaeli and Babalola Ayodele Samuel"
+date: "`r format(Sys.Date(), '%d %B %Y')`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    number_sections: true
+    code_folding: show
+    theme: flatly
+    df_print: paged
+params:
+  dhs_dir: "C:/Users/babal/OneDrive/Desktop/PROJECT MAP ECR/DATA/TZ_2022_DHS_07202026_616_87810"
+  save_figures: false
+---
+
+```{css, echo=FALSE}
+```
+
+
+```{css, echo=FALSE}
+```
+
+
+```{css, echo=FALSE}
+/* Blue explanation notes shown BEFORE each block of code */
+.note {
+  border-left: 6px solid #1f5fbf;
+  background: #eaf2ff;
+  color: #12408f;
+  padding: 10px 18px;
+  margin: 16px 0 10px 0;
+  border-radius: 4px;
+  font-size: 15.5px;
+}
+.note strong { color: #0b2a6b; }
+.note p { margin: 4px 0; }
+.note ul { margin: 4px 0 4px 18px; }
+/* Make the # comments inside the code blue as well */
+pre code span.co, code span.co { color: #1f5fbf !important; font-style: italic; }
+h1, h2 { color: #0b2a6b; }
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE,
+                      fig.width = 10, fig.height = 6, out.width = "100%")
+```
+
+::: {.note}
+**What this demo shows (and what is hidden)**
+
+We follow the four study objectives. For each, we show only the **representative** code and its **output**, the same figures and tables as in the report. The long preparation steps (loading, merging, recoding) have run in the background; their code is hidden to save time.
+
+| Study objective | Output (report) | What we learned to do |
+|---|---|---|
+| **1.** Spatial distribution and background characteristics | Tables 1-2, Figures 1-8, Moran's I | **Functional programming** (write once, apply many times), **figure and map plotting** (`ggplot2`, `sf`, `facet_wrap`) |
+| **2.** Determinants of malaria-related anaemia | Table 3 (Model 1) | Variable screening, **survey-weighted logistic models**, reading odds ratios |
+| **3.** Determinants of non-malaria anaemia | Table 4 (Model 2) | The same function, different outcome; checking for separation |
+| **4.** Do the determinants differ? | Tables 5-6 (Model 3) | Multinomial model, **Wald contrasts, omnibus tests, Holm adjustment** |
+
+**Tip for the live session:** each code block can be folded with the "Code" button. Use `code_folding: hide` in the header if you prefer to reveal code only when you need it.
+:::
+
+# Set-up (already run)
+
+::: {.note}
+**What:** packages, file paths, loading and merging the 2022 TDHS-MIS files, recoding, and the analytic sample. This takes a few minutes, so the code is hidden. The only piece we show is one tiny function that already illustrates our main idea.
+:::
+
+```{r libraries, include=FALSE}
+suppressPackageStartupMessages({
+  library(dplyr); library(tidyr); library(purrr); library(tibble)
+  library(ggplot2); library(haven); library(sf)
+  library(survey); library(srvyr); library(broom)
+  library(viridis); library(scales); library(knitr); library(spdep)
+})
+
+# Strata with a single cluster: adjust the variance instead of stopping with an error
+options(survey.lonely.psu = "adjust")
+
+# Folder for saved figures and cached map boundaries
+dir.create("figures", showWarnings = FALSE)
+dir.create("gadm_cache", showWarnings = FALSE)
+
+# ---- File paths ------------------------------------------------------------
+base_dir <- params$dhs_dir
+
+# A reusable path builder: each DHS recode "XX" sits in a folder TZ<XX>82DT
+dhs_dta_path <- function(code, phase = "82", base = base_dir) {
+  folder <- file.path(base, paste0("TZ", code, phase, "DT"))
+  fname  <- paste0("TZ", code, phase, "FL.DTA")
+  file.path(folder, fname)
+}
+
+kr_path   <- dhs_dta_path("KR")                 # Children's recode
+pr_path   <- dhs_dta_path("PR")                 # Household member recode (RDT + haemoglobin)
+ge_folder <- file.path(base_dir, "TZGE81FL")    # GPS shapefile folder
+
+stopifnot(file.exists(kr_path), file.exists(pr_path))
+```
+
+```{r load-merge, include=FALSE}
+child_data <- read_dta(kr_path)   # KR: one row per living child
+hh_data    <- read_dta(pr_path)   # PR: malaria / haemoglobin testing
+
+dhs_TZ <- child_data %>%
+  left_join(hh_data,
+            by = c("v001" = "hv001",   # cluster number
+                   "v002" = "hv002",   # household number
+                   "b16"  = "hvidx"))  # child's line number in the household
+
+ml_an_df <- dhs_TZ %>%
+  select(caseid, v001, v002, v010, b19, b4, v102, hv024, bord,
+         m19, hc70, hc71, hc72, v481, h22, h11, h31, h33, h42, h43,
+         hc56,                                          # child haemoglobin (g/dL x 10)
+         v012, v501, v106, v731, v457, v463a,           # mother
+         hv012, v137, v151, v152, hv270, hv201,         # household
+         hv213, hv214, hv215, hv227,
+         hv024, hml35, hml20, hml12,                    # malaria / community
+         v005, v021, v022)                              # survey design variables
+```
+
+```{r crosswalk, include=FALSE}
+region_zone_lookup <- tibble::tribble(
+  ~hv024, ~region_name,       ~zone,
+   1,     "Dodoma",           "central",
+   2,     "Arusha",           "northern",
+   3,     "Kilimanjaro",      "northern",
+   4,     "Tanga",            "northern",
+   5,     "Morogoro",         "eastern",
+   6,     "Pwani",            "eastern",
+   7,     "Dar es Salaam",    "eastern",
+   8,     "Lindi",            "southern",
+   9,     "Mtwara",           "southern",
+  10,     "Ruvuma",           "southern highlands",
+  11,     "Iringa",           "southern highlands",
+  12,     "Mbeya",            "southwest",
+  13,     "Singida",          "central",
+  14,     "Tabora",           "western",
+  15,     "Rukwa",            "southwest",
+  16,     "Kigoma",           "western",
+  17,     "Shinyanga",        "lake",
+  18,     "Kagera",           "lake",
+  19,     "Mwanza",           "lake",
+  20,     "Mara",             "lake",
+  21,     "Manyara",          "central",
+  22,     "Njombe",           "southern highlands",
+  23,     "Katavi",           "southwest",
+  24,     "Simiyu",           "lake",
+  25,     "Geita",            "lake",
+  26,     "Songwe",           "southern highlands",
+  51,     "Kaskazini Unguja", "Zanzibar",
+  52,     "Kusini Unguja",    "Zanzibar",
+  53,     "Mjini Magharibi",  "Zanzibar",
+  54,     "Kaskazini Pemba",  "Zanzibar",
+  55,     "Kusini Pemba",     "Zanzibar"
+)
+```
+
+::: {.note}
+**Functional programming, first example.** Many DHS questions are yes/no with the same codes (0 = no, 1 = yes, 8 = don't know). Instead of ten copies of the same `case_when()`, we wrote **one function** and called it ten times.
+
+**Say:** "Write it once, test it once, use it everywhere."
+:::
+
+```{r recode-helper}
+# One helper replaces ten near-identical case_when() blocks
+recode_yn <- function(x, yes = 1, no = 0) {
+  case_when(x %in% yes ~ "yes",
+            x %in% no  ~ "no",
+            TRUE       ~ NA_character_)     # 8 = "don't know" and any other code -> NA
+}
+
+# Tiny test, always worth showing: 8 and 9 should become NA
+recode_yn(c(0, 1, 8, 1, 9))
+```
+
+```{r recode, include=FALSE}
+mal_anemia <- ml_an_df %>%
+  filter(b19 > 5) %>%                      # keep children aged 6-59 months (eligible for RDT / Hb)
+  mutate(hv024 = as.numeric(hv024)) %>%
+  mutate(
+    # ---- child ----
+    age_child = factor(case_when(
+      b19 >= 6  & b19 <= 11 ~ "Infant",
+      b19 >= 12 & b19 <= 23 ~ "Year-1",
+      b19 >= 24 & b19 <= 35 ~ "Year-2",
+      b19 >= 36 & b19 <= 47 ~ "Year-3",
+      b19 >= 48 & b19 <= 59 ~ "Year-4"),
+      levels = c("Infant", "Year-1", "Year-2", "Year-3", "Year-4")),
+    gender_child = case_when(b4 == 1 ~ "male", b4 == 2 ~ "female"),
+    residence    = case_when(v102 == 1 ~ "urban", v102 == 2 ~ "rural"),
+    birth_order  = case_when(bord == 1 ~ "first", bord == 2 ~ "second", bord == 3 ~ "third",
+                             bord == 4 ~ "fourth", bord == 5 ~ "fifth", bord >= 6 ~ "Sixth&above"),
+    haz = hc70 / 100,
+    stunting = case_when(hc70 == 9998 ~ NA_character_,
+                         haz < -6 | haz > 6 ~ NA_character_,
+                         haz < -2 ~ "stunted", haz >= -2 ~ "normal", TRUE ~ NA_character_),
+    whz = hc72 / 100,
+    wasting = case_when(hc72 %in% c(9996, 9998, 9999) ~ NA_character_,
+                        whz < -5 | whz > 5 ~ NA_character_,
+                        whz < -2 ~ "wasted", whz >= -2 ~ "normal", TRUE ~ NA_character_),
+    underwt = case_when(hc71 == 9998 ~ NA_character_,
+                        hc71 < -200 ~ "underweight",
+                        hc71 >= -200 & hc71 <= 200 ~ "normal",
+                        hc71 > 200 ~ "overweight", TRUE ~ NA_character_),
+    # yes / no variables: the same helper every time
+    fever     = recode_yn(h22),
+    diarrhea  = recode_yn(h11, yes = c(1, 2)),
+    cough     = recode_yn(h31, yes = c(1, 2)),
+    deworming = recode_yn(h43),
+    vitA      = recode_yn(h33, yes = 1:3),
+    iron_supp = recode_yn(h42),
+    insurance = recode_yn(v481),
+    # ---- outcomes ----
+    anaemia_child = case_when(hc56 %in% c(9994, 9995, 9997, 9998, 9999) ~ NA_character_,
+                              hc56 < 110 ~ "Anaemia", hc56 >= 110 ~ "Normal",
+                              TRUE ~ NA_character_),
+    malaria_child = case_when(hml35 == 0 ~ "negative", hml35 == 1 ~ "positive",
+                              hml35 >= 6 ~ NA_character_),
+    # ---- mother ----
+    age_mom = case_when(v012 >= 15 & v012 <= 19 ~ "adolescent", v012 >= 20 & v012 <= 24 ~ "young adult",
+                        v012 >= 25 & v012 <= 29 ~ "late 20s", v012 >= 30 & v012 <= 34 ~ "30-34",
+                        v012 >= 35 & v012 <= 39 ~ "35-39", v012 >= 40 & v012 <= 44 ~ "40-44",
+                        v012 >= 45 & v012 <= 49 ~ "45-49"),
+    marital_stats = case_when(v501 == 0 ~ "Never married", v501 == 3 ~ "Widowed",
+                              v501 %in% c(1, 2) ~ "Married or living together",
+                              v501 %in% c(4, 5) ~ "Divorced or separated"),
+    education = case_when(v106 == 0 ~ "No education", v106 == 1 ~ "Primary",
+                          v106 == 2 ~ "Secondary", v106 == 3 ~ "More than sec", v106 == 8 ~ NA_character_),
+    anemia_mother = case_when(v457 == 1 ~ "Severe", v457 == 2 ~ "Moderate", v457 == 3 ~ "Mild",
+                              v457 == 4 ~ "Not anemic", TRUE ~ NA_character_),
+    # ---- household ----
+    wealth_index = factor(case_when(hv270 == 1 ~ "Poorest", hv270 == 2 ~ "Poorer", hv270 == 3 ~ "Middle",
+                                    hv270 == 4 ~ "Richer", hv270 == 5 ~ "Richest", TRUE ~ NA_character_),
+                          levels = c("Poorest", "Poorer", "Middle", "Richer", "Richest")),
+    hh_under5 = case_when(v137 == 1 ~ "One", v137 == 2 ~ "Two", v137 >= 3 ~ "Three and more",
+                          TRUE ~ NA_character_),
+    hh_size = factor(case_when(hv012 < 5 ~ "<5", hv012 >= 5 & hv012 <= 10 ~ "5-10",
+                               hv012 > 10 ~ ">10", TRUE ~ NA_character_),
+                     levels = c("<5", "5-10", ">10")),
+    head_sex = case_when(v151 == 1 ~ "male", v151 == 2 ~ "female"),
+    head_age = case_when(v152 == 98 ~ NA_character_,
+                         v152 >= 15 & v152 <= 29 ~ "Less than 30", v152 >= 30 & v152 <= 39 ~ "Thirties",
+                         v152 >= 40 & v152 <= 49 ~ "Forties", v152 >= 50 & v152 <= 59 ~ "Fifties",
+                         v152 >= 60 ~ "Sixty & more", TRUE ~ NA_character_),
+    water_source = case_when(hv201 %in% c(10, 11, 12, 13, 14, 20, 21, 31, 41, 51, 71, 72, 73) ~ "improved",
+                             hv201 %in% c(30, 32, 40, 42, 61, 62, 96) ~ "unimproved",
+                             TRUE ~ NA_character_),
+    floor_material = case_when(hv213 %in% c(11, 12) ~ "unimproved", hv213 %in% c(96) ~ NA_character_,
+                               !is.na(hv213) ~ "improved", TRUE ~ NA_character_),
+    wall_material  = case_when(hv214 %in% c(11:17, 96) ~ "unimproved",
+                               !is.na(hv214) ~ "improved", TRUE ~ NA_character_),
+    roof_material  = case_when(hv215 %in% c(11:17, 96) ~ "unimproved",
+                               !is.na(hv215) ~ "improved", TRUE ~ NA_character_),
+    hh_owns_itn = recode_yn(hv227)
+  ) %>%
+  # ---- DHS zone: join the crosswalk instead of another long case_when() ----
+  left_join(region_zone_lookup %>% select(hv024, zonal_region = zone), by = "hv024")
+```
+
+```{r analytic-sample, include=FALSE}
+data_clean <- mal_anemia %>%
+  filter(
+    !is.na(stunting), !is.na(wasting), !is.na(underwt),
+    !is.na(fever), !is.na(diarrhea), !is.na(cough), !is.na(deworming),
+    !is.na(anaemia_child), !is.na(malaria_child), !is.na(anemia_mother),
+    !is.na(zonal_region), !is.na(wealth_index), !is.na(hh_under5),
+    !is.na(head_age)
+  ) %>%
+  mutate(
+    mal_anaemia_group = factor(case_when(
+      malaria_child == "positive" & anaemia_child == "Anaemia" ~ "A_malaria_anaemia",
+      malaria_child == "negative" & anaemia_child == "Anaemia" ~ "B_nonmalaria_anaemia",
+      malaria_child == "positive" & anaemia_child == "Normal"  ~ "C_malaria_no_anaemia",
+      malaria_child == "negative" & anaemia_child == "Normal"  ~ "D_neither"),
+      levels = c("D_neither", "A_malaria_anaemia", "B_nonmalaria_anaemia", "C_malaria_no_anaemia")),
+    # 0/1 flags used throughout
+    any_malaria   = if_else(malaria_child == "positive", 1L, 0L),
+    any_anaemia   = if_else(anaemia_child == "Anaemia", 1L, 0L),
+    double_burden = if_else(mal_anaemia_group == "A_malaria_anaemia", 1L, 0L)
+  )
+
+table(data_clean$mal_anaemia_group)
+```
+
+::: {.note}
+**What:** the sample flow and the survey design. The design (weights, clusters, strata) is what makes every estimate that follows representative of Tanzanian children and gives honest confidence intervals.
+:::
+
+```{r flow}
+n_all  <- nrow(child_data)                                   # all children in the KR file
+n_age  <- nrow(mal_anemia)                                   # aged 6-59 months
+n_both <- sum(!is.na(mal_anemia$malaria_child) & !is.na(mal_anemia$anaemia_child))
+n_fin  <- nrow(data_clean)                                   # analytic sample
+
+tibble(
+  Step = c("Children in the KR recode", "Aged 6-59 months",
+           "Valid RDT and haemoglobin", "Complete covariates (analytic sample)"),
+  n    = c(n_all, n_age, n_both, n_fin),
+  Excluded = c(NA, n_all - n_age, n_age - n_both, n_both - n_fin)
+) %>% kable()
+```
+::: {.note}
+**What:** tell R about the **survey design**: the weight (`v005 / 1,000,000`), the cluster (`v021`) and the stratum (`v022`).
+
+**Why:** DHS is not a simple random sample. Weights make estimates represent all Tanzanian children, and cluster/stratum information gives honest confidence intervals. From here on, every "survey" function uses `full_design`.
+:::
+```{r design}
+full_design <- data_clean %>%
+  mutate(wt = v005 / 1e6) %>%
+  as_survey_design(ids = v021, strata = v022, weights = wt, nest = TRUE)
+
+# Weighted prevalence overall: the headline numbers
+weighted_overall <- full_design %>%
+  summarise(
+    malaria_prev       = survey_mean(any_malaria,   vartype = "ci") * 100,
+    anaemia_prev       = survey_mean(any_anaemia,   vartype = "ci") * 100,
+    double_burden_prev = survey_mean(double_burden, vartype = "ci") * 100)
+weighted_overall
+
+# ... and by DHS zone (used later for the maps)
+weighted_by_zone <- full_design %>%
+  group_by(zonal_region) %>%
+  summarise(
+    n = unweighted(n()),
+    malaria_prev       = survey_mean(any_malaria,   vartype = "ci") * 100,
+    anaemia_prev       = survey_mean(any_anaemia,   vartype = "ci") * 100,
+    double_burden_prev = survey_mean(double_burden, vartype = "ci") * 100)
+weighted_by_zone
+```
+
+# Objective 1. Spatial distribution and background characteristics
+
+## Functional programming: one function, many tables and figures
+
+::: {.note}
+**The idea:** the descriptive section needs the same weighted summary for 25 variables and the same plot for four levels (child, maternal, household, community). We write **a function, called "mk_summary" that makes one summary**, **a function that draws one figure**, and let `lapply` / `purrr::map` repeat them.
+
+**Say:** "We wrote the recipe once, and R cooked it 25 times."
+:::
+
+```{r mk-summary}
+mk_summary <- function(df, group_var) {
+  df %>%
+    mutate(wt = v005 / 1e6) %>%
+    as_survey_design(ids = v021, strata = v022, weights = wt, nest = TRUE) %>%
+    group_by({{ group_var }}) %>%
+    summarise(
+      n_unw     = unweighted(n()),
+      w_total   = unweighted(sum(wt)),
+      p_malaria = survey_mean(any_malaria,   vartype = "ci") * 100,
+      p_anaemic = survey_mean(any_anaemia,   vartype = "ci") * 100,
+      p_double  = survey_mean(double_burden, vartype = "ci") * 100) %>%
+    mutate(n = n_unw, percent = 100 * w_total / sum(w_total)) %>%
+    select(-n_unw, -w_total)
+}
+
+# Try it on ONE variable first
+mk_summary(data_clean, wealth_index)
+```
+
+```{r apply-summary}
+#Here we applied the function to the rest of the variables
+vars_to_summarise <- c("zonal_region", "age_child", "gender_child", "residence",
+                       "birth_order", "underwt", "stunting", "wasting", "fever",
+                       "diarrhea", "cough", "deworming", "age_mom", "education",
+                       "anemia_mother", "marital_stats", "wealth_index", "hh_under5",
+                       "hh_size", "head_age", "water_source", "floor_material",
+                       "wall_material", "roof_material", "hh_owns_itn")
+
+# lapply() runs mk_summary() once per variable name; !!sym(v) turns the text into a column
+desc_tables <- lapply(vars_to_summarise, function(v) mk_summary(data_clean, !!sym(v)))
+names(desc_tables) <- vars_to_summarise
+
+length(desc_tables)           # one table per variable
+desc_tables[["residence"]]    # e.g. malaria and anaemia by urban / rural
+```
+
+::: {.note}
+**What:** stack the 25 tables into one long table with each variable's level, label and category order. This bookkeeping is hidden; the output (`desc_long`) feeds the plotting functions below.
+:::
+# Build one tidy table (desc_long) from the 25 weighted summary tables so a single
+# plotting function can draw every figure. Each variable is tagged with its level
+# (child, maternal, household or community), a readable panel label, and a
+# sensible category order (e.g. Poorest to Richest instead of alphabetical).
+# imap_dfr() loops over the named list of tables and stacks them into one table,
+# with one row per category per variable.
+```{r desc-long, include=FALSE}
+var_classification <- tibble::tribble(
+  ~variable,          ~level,
+  "age_child", "Child", "gender_child", "Child", "birth_order", "Child", "underwt", "Child",
+  "stunting", "Child", "wasting", "Child", "fever", "Child", "diarrhea", "Child",
+  "cough", "Child", "deworming", "Child",
+  "age_mom", "Maternal", "education", "Maternal", "anemia_mother", "Maternal", "marital_stats", "Maternal",
+  "wealth_index", "Household", "hh_under5", "Household", "hh_size", "Household", "head_age", "Household",
+  "water_source", "Household", "floor_material", "Household", "wall_material", "Household",
+  "roof_material", "Household", "hh_owns_itn", "Household",
+  "zonal_region", "Community", "residence", "Community"
+)
+stopifnot(all(vars_to_summarise %in% var_classification$variable))   # catches un-tagged variables
+
+var_labels <- c(
+  age_child = "Child's age", gender_child = "Sex of child", birth_order = "Birth order",
+  underwt = "Underweight (WAZ)", stunting = "Stunting (HAZ)", wasting = "Wasting (WHZ)",
+  fever = "Fever (2 wks)", diarrhea = "Diarrhoea (2 wks)", cough = "Cough (2 wks)",
+  deworming = "Deworming", age_mom = "Mother's age", education = "Mother's education",
+  anemia_mother = "Mother's anaemia status", marital_stats = "Marital status",
+  wealth_index = "Wealth index", hh_under5 = "Under-5s in household", hh_size = "Household size",
+  head_age = "Household head's age", water_source = "Drinking water source",
+  floor_material = "Floor material", wall_material = "Wall material", roof_material = "Roof material",
+  hh_owns_itn = "Household owns \u2265 1 net", zonal_region = "DHS zone", residence = "Residence")
+
+level_orders <- list(
+  age_child     = c("Infant", "Year-1", "Year-2", "Year-3", "Year-4"),
+  birth_order   = c("first", "second", "third", "fourth", "fifth", "Sixth&above"),
+  age_mom       = c("adolescent", "young adult", "late 20s", "30-34", "35-39", "40-44", "45-49"),
+  education     = c("No education", "Primary", "Secondary", "More than sec"),
+  marital_stats = c("Never married", "Married or living together", "Divorced or separated", "Widowed"),
+  anemia_mother = c("Not anemic", "Mild", "Moderate", "Severe"),
+  wealth_index  = c("Poorest", "Poorer", "Middle", "Richer", "Richest"),
+  hh_under5     = c("One", "Two", "Three and more"),
+  hh_size       = c("<5", "5-10", ">10"),
+  head_age      = c("Less than 30", "Thirties", "Forties", "Fifties", "Sixty & more"))
+
+# imap_dfr(): loop over a named list, passing (element, name), and row-bind the results
+desc_long <- purrr::imap_dfr(desc_tables, function(df, var_name) {
+  df %>%
+    rename(category = 1) %>%                       # 1st column = the grouping levels
+    mutate(category = as.character(category), variable = var_name) %>%
+    select(variable, category, n, percent, p_malaria, p_anaemic, p_double)
+}) %>%
+  left_join(var_classification, by = "variable") %>%
+  mutate(variable_label = dplyr::recode(variable, !!!var_labels))
+
+# Apply the ordering variable by variable
+desc_long <- desc_long %>%
+  split(.$variable) %>%
+  purrr::map_dfr(function(df) {
+    ord <- level_orders[[df$variable[1]]]
+    df$category <- if (!is.null(ord)) factor(df$category, levels = ord) else factor(df$category)
+    df
+  })
+
+head(desc_long, 8)
+```
+
+::: {.note}
+**What:** `function plot_level_facet_combined()` draws malaria, anaemia and double burden together as grouped bars, with one panel per variable (`facet_wrap`). `purrr::map()` then builds the figure for all four levels in one line.
+
+**Result to point out (Figure 7 in the report):** malaria and double burden climb steeply with poverty (14.2% and 11.7% among the poorest versus 0.7% and 0.6% among the richest), while anaemia changes little with wealth.
+:::
+
+```{r combined-facets}
+outcome_colours <- c(Malaria = "#2166AC", Anaemia = "#B2182B", "Double burden" = "#762A83")
+
+desc_long_combined <- desc_long %>%
+  select(variable, variable_label, level, category, p_malaria, p_anaemic, p_double) %>%
+  pivot_longer(cols = c(p_malaria, p_anaemic, p_double),
+               names_to = "outcome", values_to = "prevalence") %>%
+  mutate(outcome = dplyr::recode(outcome, p_malaria = "Malaria", p_anaemic = "Anaemia",
+                                 p_double = "Double burden"),
+         outcome = factor(outcome, levels = c("Malaria", "Anaemia", "Double burden")))
+
+plot_level_facet_combined <- function(data, level_name, ncol = 3) {
+  df <- data %>% filter(level == level_name)
+  ggplot(df, aes(x = category, y = prevalence, fill = outcome)) +
+    geom_col(position = position_dodge(width = 0.8), width = 0.75) +
+    geom_text(aes(label = round(prevalence, 1)), position = position_dodge(width = 0.8),
+              vjust = -0.3, size = 3.4, check_overlap = TRUE, show.legend = FALSE) +
+    facet_wrap(~ variable_label, scales = "free_x", ncol = ncol) +
+    scale_fill_manual(values = outcome_colours, name = NULL) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.2))) +
+    labs(title = paste0(level_name, "-level characteristics"),
+         subtitle = "Survey-weighted prevalence (%), grouped per category",
+         x = NULL, y = "Weighted prevalence (%)",
+         caption = "Source: 2022 TDHS-MIS (KR & PR recodes)") +
+    theme_minimal(base_size = 15) +
+    theme(axis.text.x = element_text(angle = 40, hjust = 1, size = 12),
+          axis.text.y = element_text(size = 12),
+          strip.text = element_text(face = "bold", size = 14),
+          plot.title = element_text(face = "bold"),
+          legend.position = "top", legend.text = element_text(size = 14))
+}
+
+combined_facets <- purrr::map(levels_list, ~ plot_level_facet_combined(desc_long_combined, .x))
+names(combined_facets) <- levels_list
+combined_facets[["Household"]]
+```
+
+## Map plotting: zones, regions and survey clusters
+
+::: {.note}
+**What:** the cluster GPS points, region and zone boundaries (downloaded once and cached) and the zone and region prevalence. Hidden: it only prepares the map layers (`map_data`, `zone_map_data`, `region_map_data`).
+:::
+
+```{r clusters, include=FALSE}
+ge_shp_file <- list.files(ge_folder, pattern = "\\.shp$", full.names = TRUE)
+stopifnot(length(ge_shp_file) == 1)               # fails loudly if 0 or >1 shapefiles
+
+tz_clusters <- st_read(ge_shp_file, quiet = TRUE) %>%
+  filter(LATNUM != 0, LONGNUM != 0)               # drop clusters with missing GPS
+
+cluster_summary <- data_clean %>%
+  group_by(v001) %>%
+  summarise(n_children         = n(),
+            malaria_prev       = 100 * mean(malaria_child == "positive"),
+            anaemia_prev       = 100 * mean(anaemia_child == "Anaemia"),
+            double_burden_prev = 100 * mean(double_burden == 1),
+            .groups = "drop")
+
+map_data <- tz_clusters %>%
+  left_join(cluster_summary, by = c("DHSCLUST" = "v001")) %>%
+  filter(!is.na(n_children))                      # keep clusters with surveyed children
+
+nrow(map_data)                                    # number of clusters mapped
+```
+
+```{r gadm, include=FALSE}
+# Regions (ADM1) from GADM; the first knit downloads, later knits use gadm_cache/
+tza_regions <- geodata::gadm(country = "TZA", level = 1, path = "gadm_cache") %>%
+  sf::st_as_sf()
+
+norm_name <- function(x) tolower(trimws(gsub("[-_]", " ", x)))   # normalise spelling and case
+
+# Diagnostic: GADM names that have no match in our crosswalk (should be empty)
+unmatched <- sort(unique(tza_regions$NAME_1))[
+  !norm_name(sort(unique(tza_regions$NAME_1))) %in% norm_name(region_zone_lookup$region_name)]
+unmatched
+
+tza_regions <- tza_regions %>% mutate(region_name_norm = norm_name(NAME_1))
+
+region_zone_lookup <- region_zone_lookup %>% mutate(region_name_norm = norm_name(region_name))
+
+tza_zones <- tza_regions %>%
+  left_join(region_zone_lookup %>% select(region_name_norm, zone), by = "region_name_norm") %>%
+  filter(!is.na(zone)) %>%
+  group_by(zone) %>%
+  summarise(geometry = sf::st_union(geometry), .groups = "drop") %>%     # dissolve regions into zones
+  sf::st_as_sf()
+
+# Attach the weighted zone prevalence computed in Part 1
+zone_map_data <- tza_zones %>%
+  left_join(weighted_by_zone %>%
+              select(zonal_region, malaria_prev, anaemia_prev, double_burden_prev),
+            by = c("zone" = "zonal_region"))
+
+zone_map_data
+```
+
+```{r region-prev, include=FALSE}
+region_prev <- data_clean %>%
+  left_join(region_zone_lookup %>% select(hv024, region_name) %>% distinct(), by = "hv024") %>%
+  mutate(wt = v005 / 1e6) %>%
+  as_survey_design(ids = v021, strata = v022, weights = wt, nest = TRUE) %>%
+  group_by(region_name) %>%
+  summarise(n = unweighted(n()),
+            malaria_prev       = survey_mean(any_malaria)   * 100,
+            anaemia_prev       = survey_mean(any_anaemia)   * 100,
+            double_burden_prev = survey_mean(double_burden) * 100) %>%
+  select(region_name, n, malaria_prev, anaemia_prev, double_burden_prev) %>%
+  mutate(region_name_norm = norm_name(region_name))
+
+region_map_data <- tza_regions %>%
+  left_join(region_prev %>% select(-region_name), by = "region_name_norm")
+
+sum(is.na(region_map_data$n))        # regions with no matched data (should be 0)
+```
+
+::: {.note}
+**Figure 1: a clean bar chart by zone.** A small function turns the zone table into the grouped bar chart used in the report, with the same colours for malaria (blue), anaemia (red) and double burden (purple) in every figure.
+:::
+
+```{r zone-bar}
+plot_zone_bar <- function(zone_tbl) {
+  zone_tbl %>%
+    select(zonal_region, malaria_prev, anaemia_prev, double_burden_prev) %>%
+    pivot_longer(-zonal_region, names_to = "indicator", values_to = "value") %>%
+    mutate(indicator = factor(dplyr::recode(indicator, malaria_prev = "Malaria",
+                                            anaemia_prev = "Anaemia",
+                                            double_burden_prev = "Double burden"),
+                              levels = c("Malaria", "Anaemia", "Double burden"))) %>%
+    ggplot(aes(x = reorder(zonal_region, value), y = value, fill = indicator)) +
+    geom_col(position = position_dodge(width = 0.8), width = 0.75) +
+    coord_flip() +
+    scale_fill_manual(values = c(Malaria = "#2166AC", Anaemia = "#B2182B",
+                                 "Double burden" = "#762A83"), name = NULL) +
+    labs(x = NULL, y = "Weighted prevalence (%)", caption = "Source: 2022 TDHS-MIS") +
+    theme_minimal(base_size = 15) + theme(legend.position = "top")
+}
+
+plot_zone_bar(weighted_by_zone)
+```
+
+::: {.note}
+**Figures 2 to 4: region | DHS zone | survey cluster in one figure.** Each layer gets a `level` column and `facet_wrap(~ level)` puts the three scales side by side. The function takes only the variable, a title and a colour, so the **calls are short**: one `pmap()` builds all three figures.
+
+**Say:** "Anaemia is high everywhere; malaria and the double burden are concentrated in the Western and Southern zones."
+:::
+
+```{r facet-map-function}
+lev3 <- c("Region", "DHS zone", "Survey cluster")
+
+facet_map <- function(var, title_txt, hue) {
+  poly_reg <- region_map_data %>%
+    mutate(level = factor("Region", levels = lev3), value = .data[[var]]) %>%
+    select(level, value)
+  poly_zone <- zone_map_data %>%
+    mutate(level = factor("DHS zone", levels = lev3), value = .data[[var]]) %>%
+    select(level, value)
+  zone_lab <- poly_zone                                   # label positions: a point inside each zone
+  sf::st_geometry(zone_lab) <- suppressWarnings(sf::st_point_on_surface(sf::st_geometry(poly_zone)))
+  zone_out <- tza_zones %>% mutate(level = factor("Survey cluster", levels = lev3)) %>% select(level)
+  pts <- map_data %>%
+    sf::st_transform(sf::st_crs(tza_zones)) %>%
+    mutate(level = factor("Survey cluster", levels = lev3), value = .data[[var]]) %>%
+    select(level, value, n_children)
+  cap <- as.numeric(quantile(pts$value, 0.95, na.rm = TRUE))   # colour-scale cap
+
+  ggplot() +
+    geom_sf(data = poly_reg,  aes(fill = value), colour = "white", linewidth = 0.1) +
+    geom_sf(data = poly_zone, aes(fill = value), colour = "white", linewidth = 0.3) +
+    geom_sf(data = zone_out, fill = "grey95", colour = "grey55", linewidth = 0.3) +
+    geom_sf(data = pts, aes(fill = value, size = n_children),
+            shape = 21, colour = "grey25", stroke = 0.15, alpha = 0.9) +
+    geom_sf_label(data = zone_lab, aes(label = format(round(value, 1), nsmall = 1)),
+                  size = 3.4, fill = scales::alpha("white", 0.75)) +
+    scale_fill_gradient(low = "grey95", high = hue, limits = c(0, cap),
+                        oob = scales::squish, na.value = "grey85", name = "Prevalence (%)") +
+    scale_size_continuous(range = c(1, 3), name = "Children\ntested") +
+    facet_wrap(~ level, nrow = 1) +
+    labs(title = title_txt,
+         caption = paste0("Colour scale capped at the 95th percentile of cluster values. ",
+                          "Region/zone: survey-weighted; cluster: unweighted. ",
+                          "Source: 2022 TDHS-MIS; GADM v4.1.")) +
+    theme_minimal(base_size = 13) +
+    theme(axis.text = element_blank(), axis.title = element_blank(), panel.grid = element_blank(),
+          strip.text = element_text(face = "bold", size = 14),
+          plot.title = element_text(face = "bold"),
+          plot.caption = element_text(size = 9, hjust = 0),
+          legend.position = "bottom", legend.key.width = unit(1.6, "cm"))
+}
+```
+
+```{r facet-map-call, fig.width=11, fig.height=5}
+#Here we now applied the function "facet_maps"
+facet_spec <- tibble::tribble(
+  ~name,     ~var,                 ~title_txt,                                          ~hue,
+  "anaemia", "anaemia_prev",       "Anaemia prevalence (any anaemia, Groups A + B)",    "#B2182B",
+  "malaria", "malaria_prev",       "Malaria prevalence (RDT-positive, Groups A + C)",   "#2166AC",
+  "double",  "double_burden_prev", "Double burden (Group A: malaria-related anaemia)",  "#762A83"
+)
+
+# One short call builds all three figures (the arguments are matched by column name)
+facet_maps <- facet_spec %>% select(var, title_txt, hue) %>% purrr::pmap(facet_map)
+names(facet_maps) <- facet_spec$name
+
+facet_maps$anaemia
+facet_maps$malaria
+facet_maps$double
+```
+
+::: {.note}
+**Is the pattern clustered? Moran's I.** Values near 0 mean no spatial pattern; positive values mean neighbouring clusters are alike. Here the clustering is real but weak, so there is much local variation inside zones.
+:::
+
+```{r moran}
+morans_i <- function(sf_points, var, k = 8) {
+  nb <- spdep::knn2nb(spdep::knearneigh(sf::st_coordinates(sf_points), k = k, longlat = TRUE))
+  lw <- spdep::nb2listw(nb, style = "W")                       # row-standardised weights
+  mt <- spdep::moran.test(sf_points[[var]], lw)                # one-sided test against randomisation
+  tibble(variable = var,
+         morans_I = unname(mt$estimate["Moran I statistic"]),
+         p_value  = mt$p.value)
+}
+
+moran_tbl <- purrr::map_dfr(c("malaria_prev", "anaemia_prev", "double_burden_prev"),
+                            ~ morans_i(map_data, .x))
+moran_tbl %>% mutate(morans_I = round(morans_I, 3), p_value = signif(p_value, 2)) %>% kable()
+```
+
+# Objectives 2 and 3. Determinants of malaria-related and non-malaria anaemia
+
+::: {.note}
+**The plan:** (1) screen candidate variables; (2) fit **Model 1** (malaria-related anaemia, group A vs D) and **Model 2** (non-malaria anaemia, group B vs D); (3) read the adjusted odds ratios (AOR). Both models are **survey-weighted**, so they use the survey design object and not the raw data.
+:::
+
+## Variable selection
+
+::: {.note}
+**What:** two analysis designs made by **subsetting the design object** (so cluster and strata information stays correct), then two screening functions that loop over 29 candidate variables with `map_dfr()`. `tryCatch()` keeps the loop going if one variable fails.
+
+**Rule:** keep variables with p < 0.20 as *candidates*. Final choices also follow literature, parsimony and data availability: vitamin A and insurance were recorded only for children under 3, so using them would have removed the older children.
+:::
+```{r}
+```
+
+
+```{r}
+```
+
+
+```{r}
+```
+
+```{r screening-designs, include=FALSE}
+design_A <- full_design %>%
+  filter(mal_anaemia_group %in% c("A_malaria_anaemia", "D_neither")) %>%
+  mutate(outcome_A = if_else(mal_anaemia_group == "A_malaria_anaemia", 1, 0))
+
+design_B <- full_design %>%
+  filter(mal_anaemia_group %in% c("B_nonmalaria_anaemia", "D_neither")) %>%
+  mutate(outcome_B = if_else(mal_anaemia_group == "B_nonmalaria_anaemia", 1, 0))
+
+covariates <- c("age_child", "gender_child", "residence", "zonal_region", "birth_order",
+                "stunting", "wasting", "underwt", "fever", "diarrhea", "cough", "deworming",
+                "vitA", "iron_supp", "insurance", "age_mom", "marital_stats", "education",
+                "anemia_mother", "wealth_index", "hh_under5", "hh_size", "head_sex",
+                "head_age", "water_source", "floor_material", "wall_material",
+                "roof_material", "hh_owns_itn")
+```
+
+```{r screening-functions}
+
+# run_rao_scott(): for each candidate variable, run a design-based Rao-Scott test of
+# association with the outcome (svychisq, F statistic) and return the statistic, its
+# degrees of freedom and the p-value. Used with a p < 0.20 rule to screen variables.
+# tryCatch() records NA instead of stopping if a test fails (e.g. empty cells).
+
+run_rao_scott <- function(design, outcome, covariates) {
+  purrr::map_dfr(covariates, function(v) {
+    f <- as.formula(paste0("~", v, "+", outcome))
+    test <- tryCatch(svychisq(f, design = design, statistic = "F"), error = function(e) NULL)
+    if (is.null(test)) return(tibble(variable = v, statistic = NA, df = NA, p_value = NA))
+    tibble(variable = v, statistic = unname(test$statistic),
+           df = paste(test$parameter, collapse = ", "), p_value = test$p.value)
+  })
+}
+
+###### # bivariate_pr(): for each candidate variable, fit a survey-weighted modified Poisson
+# model (outcome ~ variable) and return the unadjusted prevalence ratio (PR) with its
+# 95% CI and p-value. Used to screen variables before the adjusted models.
+# tryCatch() keeps the loop going if one variable fails (e.g. an empty category).
+
+bivariate_pr <- function(design, outcome, covariates) {
+  purrr::map_dfr(covariates, function(v) {
+    f <- as.formula(paste0(outcome, " ~ ", v))
+    m <- tryCatch(svyglm(f, design = design, family = quasipoisson()), error = function(e) NULL)
+    if (is.null(m)) return(tibble(variable = v))
+    broom::tidy(m, exponentiate = TRUE, conf.int = TRUE) %>%
+      filter(term != "(Intercept)") %>%
+      mutate(variable = v) %>%
+      select(variable, term, PR = estimate, conf.low, conf.high, p.value)
+  })
+}
+
+rs_A <- run_rao_scott(design_A, "outcome_A", covariates)   # malaria-related anaemia
+rs_B <- run_rao_scott(design_B, "outcome_B", covariates)   # non-malaria anaemia
+
+rs_A %>% mutate(p_value = signif(p_value, 3)) %>% arrange(p_value)
+```
+
+```{r screen-rule}
+screen_variables <- function(rs_table, p_cut = 0.20) {
+  rs_table %>% filter(!is.na(p_value), p_value < p_cut) %>% pull(variable)
+}
+
+screened <- list(A = screen_variables(rs_A), B = screen_variables(rs_B))
+screened
+
+# Which candidates pass for one outcome only, and which for both?
+list(both = intersect(screened$A, screened$B),
+     only_A = setdiff(screened$A, screened$B),
+     only_B = setdiff(screened$B, screened$A))
+```
+
+## Objective 2: Model 1, malaria-related anaemia
+
+::: {.note}
+**What:** one function fits a survey-weighted logistic model for **any outcome and any predictors**; `reformulate()` builds the formula from a vector of names, so changing a model means editing a vector.
+
+**How to read an AOR:** below 1 means lower odds than the reference category; above 1 means higher.
+
+**Separation (a key lesson):** when region was added, some zones had **no** cases, and odds ratios exceeded one million. `detectseparation` flags this formally, so region stays out of Model 1.
+:::
+
+```{r fit-function}
+fit_svy_logit <- function(design, outcome, predictors) {
+  f <- reformulate(predictors, response = outcome)
+  survey::svyglm(f, design = design, family = quasibinomial())
+}
+
+vars_model1 <- c("age_child", "residence", "wealth_index", "education", "anemia_mother",
+                 "hh_owns_itn", "water_source", "hh_size", "stunting", "wasting")
+vars_model2 <- c("age_child", "residence", "zonal_region", "wealth_index", "education",
+                 "anemia_mother", "water_source", "hh_size", "stunting", "wasting",
+                 "fever", "deworming")
+```
+
+```{r separation}
+check_separation <- function(design, outcome, predictors) {
+  f <- reformulate(predictors, response = outcome)
+  glm(f, data = design$variables, family = binomial(),
+      method = detectseparation::detect_separation)
+}
+
+if (requireNamespace("detectseparation", quietly = TRUE)) {
+  cat("Model 1 with region (A vs D):\n")
+  print(check_separation(design_A, "outcome_A", c("zonal_region", vars_model1)))
+  cat("\nModel 2 with region (B vs D):\n")
+  print(check_separation(design_B, "outcome_B", vars_model2))
+}
+```
+
+::: {.note}
+**Result to point out (Table 3):** urban residence (AOR 0.16), the richest households (0.14) and ages 12-23 and 48-59 months are **protective**; unimproved water (1.56) and households of more than 10 people (2.35) raise the odds.
+:::
+
+```{r model1}
+# two small helpers: pull out the odds ratios, and format them as "AOR (95% CI)"
+extract_svy_results <- function(model, model_name) {
+  estimates <- coef(model)
+  intervals <- confint(model)
+  coefficient_table <- summary(model)$coefficients
+  tibble(term = names(estimates), model = model_name,
+         AOR = exp(estimates),
+         Lower_95_CI = exp(intervals[, 1]), Upper_95_CI = exp(intervals[, 2]),
+         p_value = coefficient_table[, 4]) %>%
+    filter(term != "(Intercept)")
+}
+
+format_aor <- function(res) {
+  res %>%
+    mutate(`AOR (95% CI)` = sprintf("%.2f (%.2f\u2013%.2f)", AOR, Lower_95_CI, Upper_95_CI),
+           `p-value` = ifelse(p_value < 0.001, "<0.001", sprintf("%.3f", p_value))) %>%
+    select(Predictor = term, `AOR (95% CI)`, `p-value`)
+}
+
+vars_model1 <- c("age_child", "residence", "wealth_index", "education", "anemia_mother",
+                 "hh_owns_itn", "water_source", "hh_size", "stunting", "wasting")
+
+model_1 <- fit_svy_logit(design_A, "outcome_A", vars_model1)     # A vs D, no region
+res_1   <- extract_svy_results(model_1, "Model 1: Malaria-related anaemia")
+
+nobs(model_1)
+format_aor(res_1) %>% kable(caption = "Model 1: malaria-related anaemia (A vs D)")
+```
+
+## Objective 3: Model 2, non-malaria-related anaemia
+
+::: {.note}
+**What:** the *same* functions, a different outcome and a different predictor set: region is now included (no separation problem), and recent fever and deworming are added, because they relate to anaemia rather than to malaria exposure.
+
+**Result to point out (Table 4):** odds fall steadily with age (48-59 months: AOR 0.24), are higher in the **Eastern** (2.43) and **Zanzibar** (1.96) zones, and rise with moderate maternal anaemia (1.56). Wealth and residence no longer matter.
+:::
+
+```{r model2}
+vars_model2 <- c("age_child", "residence", "zonal_region", "wealth_index", "education",
+                 "anemia_mother", "water_source", "hh_size", "stunting", "wasting",
+                 "fever", "deworming")
+
+model_2 <- fit_svy_logit(design_B, "outcome_B", vars_model2)     # B vs D, with region
+res_2   <- extract_svy_results(model_2, "Model 2: Non-malaria-related anaemia")
+
+nobs(model_2)
+format_aor(res_2) %>% kable(caption = "Model 2: non-malaria-related anaemia (B vs D)")
+```
+
+# Objective 4. Do the two sets of determinants differ?
+
+::: {.note}
+**Look first, then test.** A forest plot puts the two outcomes side by side (same predictors in both models, so the comparison is fair). Where the colours disagree, the factor behaves differently for the two kinds of anaemia. But a picture is not a test, so we then run formal tests on one joint model.
+:::
+
+```{r forest, fig.height=8}
+shared_vars <- c("age_child", "residence", "wealth_index", "education", "anemia_mother",
+                 "water_source", "hh_size", "stunting", "wasting")
+
+model_A_h <- fit_svy_logit(design_A, "outcome_A", shared_vars)
+model_B_h <- fit_svy_logit(design_B, "outcome_B", shared_vars)
+
+forest_df <- bind_rows(extract_svy_results(model_A_h, "A: Malaria-related anaemia"),
+                       extract_svy_results(model_B_h, "B: Non-malaria anaemia")) %>%
+  filter(!grepl("^education", term)) %>%
+  mutate(term = factor(term, levels = rev(unique(term))))
+
+plot_forest <- function(df) {
+  ggplot(df, aes(x = AOR, y = term, colour = model)) +
+    geom_vline(xintercept = 1, linetype = "dashed", colour = "grey40") +
+    geom_pointrange(aes(xmin = Lower_95_CI, xmax = Upper_95_CI),
+                    position = position_dodge(width = 0.6), size = 0.5) +
+    scale_x_log10() +
+    scale_colour_manual(values = c("A: Malaria-related anaemia" = "#762A83",
+                                   "B: Non-malaria anaemia"     = "#B2182B"), name = NULL) +
+    labs(x = "Adjusted odds ratio (log scale, 95% CI)", y = NULL,
+         caption = "Same predictors in both models; region excluded") +
+    theme_minimal(base_size = 14) + theme(legend.position = "top")
+}
+plot_forest(forest_df)
+```
+
+::: {.note}
+**What:** one **multinomial model** for groups A, B and D together (reference D). It gives one set of coefficients for A vs D (names ending `:1`) and one for B vs D (ending `:2`), and **keeps their covariance**, which is what makes a formal comparison possible. Region is left out (same separation problem).
+:::
+
+```{r model3}
+#library(svyVGAM)     # multinomial regression for complex surveys
+
+design_joint <- subset(full_design,
+                       mal_anaemia_group %in% c("D_neither", "A_malaria_anaemia", "B_nonmalaria_anaemia"))
+
+# D_neither is the reference outcome
+design_joint <- update(design_joint,
+  outcome_joint = factor(as.character(mal_anaemia_group),
+                         levels = c("D_neither", "A_malaria_anaemia", "B_nonmalaria_anaemia")))
+
+joint_formula <- outcome_joint ~ age_child + residence + wealth_index + education +
+  anemia_mother + water_source + hh_size + stunting + wasting
+
+required_vars <- c("outcome_joint", "age_child", "residence", "wealth_index", "education",
+                   "anemia_mother", "water_source", "hh_size", "stunting", "wasting")
+
+# Keep children complete on every variable so both equations use the same sample
+design_joint <- subset(design_joint,
+                       complete.cases(design_joint$variables[, required_vars, drop = FALSE]))
+
+model_joint <- svyVGAM::svy_vglm(joint_formula, design = design_joint,
+                                 family = VGAM::multinomial(refLevel = 1))
+
+nrow(design_joint$variables)                # sample size of Model 3
+head(round(coef(model_joint), 2), 12)      # ":1" = A vs D, ":2" = B vs D
+```
+
+::: {.note}
+**"Design-based Wald contrasts; omnibus tests Holm-adjusted", in plain words:**
+
+- **Contrast:** subtract a predictor's effect on B from its effect on A (log-odds scale). Exponentiated, it is the **ratio of adjusted odds ratios**: 1 means the same effect on both pathways.
+- **Wald test:** tests whether that difference is zero (estimate divided by its standard error).
+- **Design-based:** the standard error and degrees of freedom come from the survey design (clusters and strata).
+- **Omnibus test:** a variable with several categories (such as age) has several contrasts; the omnibus test asks about all of them **at once** and gives one F statistic and one p-value.
+- **Holm:** we test four variables, so we correct the four p-values for multiple testing.
+:::
+
+```{r wald-setup}
+b  <- coef(model_joint)               # all coefficients
+V  <- vcov(model_joint)               # their design-based covariance matrix
+df_design <- survey::degf(design_joint)   # design degrees of freedom
+df_design
+```
+# Ratio of adjusted odds ratios (A vs B) for every predictor in Model 3.
+# In the multinomial model, coefficients ending ":1" are for A vs D and ":2" for B vs D.
+# contrast_one() builds a contrast (+1 on the A coefficient, -1 on the B coefficient),
+# gets the difference and its design-based SE from the covariance matrix V, and returns
+# exp(difference) = ratio of AORs with a 95% CI and a t-test p-value (design df).
+# A ratio near 1 means the predictor acts similarly on both pathways.
+# map_dfr() applies it to every shared predictor and stacks the results.
+
+```{r contrasts}
+terms_A <- sub(":1$", "", names(b)[grepl(":1$", names(b))])
+terms_B <- sub(":2$", "", names(b)[grepl(":2$", names(b))])
+common_terms <- setdiff(intersect(terms_A, terms_B), "(Intercept)")
+
+contrast_one <- function(term, b, V, df_design) {
+  L <- setNames(rep(0, length(b)), names(b))
+  L[paste0(term, ":1")] <-  1
+  L[paste0(term, ":2")] <- -1
+  difference <- sum(L * b)
+  se <- sqrt(as.numeric(t(L) %*% V %*% L))
+  t_stat <- difference / se
+  crit <- qt(0.975, df = df_design)
+  tibble(term = term,
+         ratio_of_AORs = exp(difference),
+         Lower_95_CI = exp(difference - crit * se),
+         Upper_95_CI = exp(difference + crit * se),
+         p_value = 2 * pt(abs(t_stat), df = df_design, lower.tail = FALSE))
+}
+
+contrast_results <- purrr::map_dfr(common_terms, contrast_one, b = b, V = V, df_design = df_design)
+
+contrast_results %>%
+  mutate(across(c(ratio_of_AORs, Lower_95_CI, Upper_95_CI), ~ round(.x, 3)),
+         p_value = signif(p_value, 3)) %>%
+  kable(caption = "Ratio of adjusted odds ratios, A vs B (Model 3)")
+```
+
+::: {.note}
+**Result to point out (Table 5):** the ratio for **urban** residence is about 0.13 and for the **richest** households about 0.17, so these factors protect much more strongly against malaria-related anaemia than against non-malaria anaemia. **Unimproved water** is about 1.8: it raises the odds of the malaria-related pathway more.
+:::
+
+# Omnibus design-based Wald test: does a predictor act differently on A vs B?
+# For a predictor (e.g. age_child) with several categories, build one contrast row per
+# category (+1 on the A-vs-D coefficient, -1 on the matching B-vs-D coefficient).
+# d = L %*% beta are the A-minus-B differences; their covariance is L V L'
+# (V = design-based covariance of Model 3). Wald W = d' (L V L')^-1 d tests all
+# differences jointly; F = W / q (q = number of restrictions), compared with an F
+# distribution with q and design df. One p-value per predictor.
+# Holm adjustment: p.adjust(method = "holm") corrects the four predictor p-values for
+# multiple testing (stricter than no correction, more powerful than Bonferroni).
+
+```{r omnibus}
+compare_predictor <- function(prefix, beta, V, df_design) {
+  coefficient_names <- names(beta)
+  names_1 <- coefficient_names[grepl(paste0("^", prefix), coefficient_names) &
+                                 grepl(":1$", coefficient_names)]
+  names_2 <- sub(":1$", ":2", names_1)
+  if (length(names_1) == 0) stop("No matching coefficients found for: ", prefix)
+  if (!all(names_2 %in% coefficient_names)) stop("Matching coefficients are missing for: ", prefix)
+
+  q <- length(names_1)                                   # number of restrictions
+  L <- matrix(0, nrow = q, ncol = length(beta), dimnames = list(NULL, coefficient_names))
+  for (i in seq_len(q)) {
+    L[i, names_1[i]] <-  1
+    L[i, names_2[i]] <- -1
+  }
+
+  difference   <- as.vector(L %*% beta)                  # differences between A and B effects
+  V_difference <- L %*% V %*% t(L)                       # their covariance matrix
+  W <- as.numeric(crossprod(difference, solve(V_difference, difference)))   # Wald chi-square
+  F_stat  <- W / q
+  p_value <- pf(F_stat, df1 = q, df2 = df_design, lower.tail = FALSE)
+
+  data.frame(predictor = prefix, numerator_df = q, denominator_df = df_design,
+             Wald_chisq = W, F_statistic = F_stat, p_value = p_value)
+}
+
+omnibus <- do.call(rbind, lapply(c("age_child", "residence", "water_source", "anemia_mother"),
+                                 compare_predictor, beta = b, V = V, df_design = df_design))
+
+omnibus$p_adjusted_Holm <- p.adjust(omnibus$p_value, method = "holm")
+
+omnibus %>%
+  mutate(across(c(Wald_chisq, F_statistic), ~ round(.x, 3)),
+         across(c(p_value, p_adjusted_Holm), ~ signif(.x, 3))) %>%
+  kable(caption = "Omnibus Wald tests: does a predictor act differently on A and B? (Holm-adjusted)")
+```
+
+::: {.note}
+**Result to point out (Table 6):**
+
+- **Child age, residence and water source** act **differently** on the two pathways (Holm-adjusted p-values small): they are **pathway-specific** determinants.
+- **Maternal anaemia** has the **same** effect on both (p close to 1): a **shared** determinant, pointing to common nutritional causes.
+- **Programme message:** target nets and case management to the Western and Southern zones, and run anaemia screening and nutrition programmes nationally.
+:::
+
+# Wrap-up
+
+::: {.note}
+**What we learned**
+
+| Topic | Tool |
+|---|---|
+| Don't repeat code | functions with arguments and defaults (`recode_yn`, `mk_summary`, `plot_level_facet_combined`, `fit_svy_logit`) |
+| Loops without `for` | `lapply`, `purrr::map`, `map_dfr`, `pmap` |
+| Maps and figures | `sf`, `geom_sf`, `ggplot2`, `facet_wrap`, Moran's I |
+| Survey-weighted models | `as_survey_design`, `svyglm`, `svy_vglm` |
+| Comparing pathways | Wald contrasts, omnibus F tests, Holm adjustment |
+
+**Limits to mention if asked:** cross-sectional; Group A is small (n = 210); region excluded from Models 1 and 3 because of separation; complete-case analysis; DHS displaces cluster GPS (up to 2 km urban, 5 km rural), so cluster maps are approximate.
+:::
+
